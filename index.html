@@ -1531,10 +1531,10 @@ svg {
           svg.appendChild(label);
         });
 
-        const xLabel = el("text", {x:margin.left+plotWidth/2,y:height-10,"text-anchor":"middle"});
+        const xLabel = el("text", {x:margin.left+plotWidth/2,y:height-22,"text-anchor":"middle"});
         xLabel.textContent = "อายุ (ปี)";
         svg.appendChild(xLabel);
-        const yAxisTitleX = 14;
+        const yAxisTitleX = isHeight ? 26 : 39;
         const yLabel = el("text", {x:yAxisTitleX,y:margin.top+plotHeight/2,transform:`rotate(-90 ${yAxisTitleX} ${margin.top+plotHeight/2})`,"text-anchor":"middle"});
         yLabel.textContent = isHeight ? "ส่วนสูง (ซม.)" : "น้ำหนัก (กก.)";
         svg.appendChild(yLabel);
