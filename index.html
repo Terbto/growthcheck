@@ -1424,17 +1424,17 @@ svg {
 
       function bmiAssessment(age, z) {
         const underFive = age * 12 <= 60;
-        if (z < -3) return {category:"ผอมมาก",level:"see",detail:"BMI ตามอายุต่ำกว่า −3 SD"};
-        if (z < -2) return {category:"ผอม",level:"see",detail:"BMI ตามอายุต่ำกว่า −2 SD"};
+        if (z < -3) return {category:"ผอมมาก",level:"see",detail:"ต่ำกว่าเกณฑ์ตามวัยมาก (BMI ตามอายุต่ำกว่า −3 SD)"};
+        if (z < -2) return {category:"ผอม",level:"see",detail:"ต่ำกว่าเกณฑ์ตามวัย (BMI ตามอายุต่ำกว่า −2 SD)"};
         if (underFive) {
-          if (z > 3) return {category:"อ้วน",level:"see",detail:"BMI ตามอายุสูงกว่า +3 SD"};
-          if (z > 2) return {category:"น้ำหนักเกิน",level:"see",detail:"BMI ตามอายุสูงกว่า +2 SD"};
-          if (z > 1) return {category:"เสี่ยงน้ำหนักเกิน",level:"confirm",detail:"BMI ตามอายุสูงกว่า +1 SD"};
+          if (z > 3) return {category:"อ้วน",level:"see",detail:"สูงกว่าเกณฑ์ตามวัยมาก (BMI ตามอายุสูงกว่า +3 SD)"};
+          if (z > 2) return {category:"น้ำหนักเกิน",level:"see",detail:"สูงกว่าเกณฑ์ตามวัยชัดเจน (BMI ตามอายุสูงกว่า +2 SD)"};
+          if (z > 1) return {category:"เสี่ยงน้ำหนักเกิน",level:"confirm",detail:"เริ่มสูงกว่าเกณฑ์ตามวัย (BMI ตามอายุสูงกว่า +1 SD)"};
         } else {
-          if (z > 2) return {category:"อ้วน",level:"see",detail:"BMI ตามอายุสูงกว่า +2 SD"};
-          if (z > 1) return {category:"น้ำหนักเกิน",level:"confirm",detail:"BMI ตามอายุสูงกว่า +1 SD"};
+          if (z > 2) return {category:"อ้วน",level:"see",detail:"สูงกว่าเกณฑ์ตามวัยชัดเจน (BMI ตามอายุสูงกว่า +2 SD)"};
+          if (z > 1) return {category:"น้ำหนักเกิน",level:"confirm",detail:"เริ่มสูงกว่าเกณฑ์ตามวัย (BMI ตามอายุสูงกว่า +1 SD)"};
         }
-        return {category:"อยู่ในช่วงเหมาะสม",level:"watch",detail:"BMI ตามอายุอยู่ระหว่าง −2 ถึง +1 SD"};
+        return {category:"อยู่ในช่วงเหมาะสม",level:"watch",detail:"อยู่ในช่วงเหมาะสมตามวัย (BMI ตามอายุอยู่ระหว่าง −2 ถึง +1 SD)"};
       }
 
       function readData() {
@@ -1601,8 +1601,8 @@ svg {
           `น้ำหนักล่าสุดอยู่ที่ ${percentileLabel(latest.weightPercentile)} ของน้ำหนักตามอายุ`
         ];
         let level = "watch";
-        let title = "ยังไม่พบสัญญาณส่งต่อจากกราฟอย่างชัดเจน";
-        let text = "ติดตามส่วนสูงด้วยวิธีเดิมทุก 6 เดือน และดูว่าแนวจุดยังวิ่งใกล้เส้นเดิมหรือไม่";
+        let title = "แนวการเติบโตยังไม่พบความผิดปกติ";
+        let text = "ติดตามส่วนสูงด้วยวิธีเดิมทุก 3 เดือน และดูว่าแนวจุดยังวิ่งใกล้เส้นเดิมหรือไม่";
 
         if (latest.percentile < 3) {
           level = "see";
@@ -1622,18 +1622,18 @@ svg {
           const velocity = (latest.height - previous.height) / days * 365.2425;
           const zDrop = latest.z - previous.z;
           reasons.push(`ช่วงล่าสุดสูงขึ้นเทียบเป็นประมาณ ${velocity.toFixed(1)} ซม./ปี`);
-          if (days < 120) {
+          if (days < 90) {
             if (level !== "see") {
               level = "confirm";
               title = "ช่วงเวลาวัดสั้นเกินไป ยังสรุปแนวโน้มไม่ได้";
-              text = "วัดซ้ำเมื่อห่างจากครั้งก่อนรวมอย่างน้อย 4–6 เดือน";
+              text = "วัดซ้ำเมื่อห่างจากครั้งก่อนรวม 3–6 เดือน";
             }
-            reasons.push("ข้อมูลสองครั้งล่าสุดห่างกันน้อยกว่า 4 เดือน");
+            reasons.push("ข้อมูลสองครั้งล่าสุดห่างกันน้อยกว่า 3 เดือน");
           } else if (zDrop <= -1) {
             level = "see";
             title = "แนวส่วนสูงตกลงชัดเจน ควรนัดประเมิน";
             text = "ควรพบกุมารแพทย์เพื่อตรวจการวัดและหาสาเหตุของการตกข้ามแนวกราฟ";
-            reasons.push("ตำแหน่งบนกราฟลดลงมากกว่าประมาณ 1 ค่าเบี่ยงเบนมาตรฐาน");
+            reasons.push("แนวส่วนสูงลดลงข้ามช่วงของกราฟอย่างชัดเจน (ตำแหน่งบนกราฟลดลงมากกว่าประมาณ 1 ค่าเบี่ยงเบนมาตรฐาน)");
           } else if (data.puberty === "no") {
             let cutoff = latest.age < 4 ? 5.5 : latest.age < 6 ? 5 : data.sex === "female" ? 4.5 : 4;
             if (velocity < cutoff) {
@@ -1647,11 +1647,11 @@ svg {
           level = latest.percentile < 3 ? "see" : "confirm";
           if (level === "confirm") {
             title = "มีเพียง 1 จุด จึงยังดูแนวการโตไม่ได้";
-            text = "เพิ่มส่วนสูงครั้งเก่าหรือวัดซ้ำอีกครั้งใน 4–6 เดือน";
+            text = "เพิ่มส่วนสูงครั้งเก่าหรือวัดซ้ำอีกครั้งใน 3–6 เดือน";
           }
           reasons.push("ต้องมีอย่างน้อย 2 จุดจึงคำนวณอัตราการโตและการเปลี่ยนแนวกราฟได้");
         }
-        reasons.push(`BMI ล่าสุด ${latest.bmi.toFixed(1)} กก./ม² — ${latest.bmiStatus.category} (${latest.bmiStatus.detail})`);
+        reasons.push(`BMI ล่าสุด ${latest.bmi.toFixed(1)} กก./ม² — ${latest.bmiStatus.detail}`);
         if (latest.bmiStatus.level === "see") {
           const alreadySee = level === "see";
           level = "see";
