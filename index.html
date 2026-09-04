@@ -884,6 +884,8 @@ svg {
     #childGrowthChartApp .cgc-sex input{position:absolute;opacity:0}
     #childGrowthChartApp .cgc-measurements{counter-reset:measure;display:grid;gap:.55rem}
     #childGrowthChartApp .cgc-measurement{counter-increment:measure;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.48rem .55rem;padding:.68rem;border:1px solid #e4eee9;border-radius:15px;background:#fbfefd}
+    #childGrowthChartApp .cgc-measurement.is-invalid{border-color:#e78fa0;background:#fff7f8;box-shadow:0 0 0 2px rgba(231,143,160,.16)}
+    #childGrowthChartApp .cgc-measurement.is-invalid .cgc-measure-number{background:#ffdce3;color:#a5364d}
     #childGrowthChartApp .cgc-measurement>.cgc-date-field{grid-column:1/-1}
     #childGrowthChartApp .cgc-measure-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:32px}
     #childGrowthChartApp .cgc-measure-title{display:flex;align-items:center;gap:.45rem;min-width:0}
@@ -935,6 +937,7 @@ svg {
     #childGrowthChartApp .cgc-metric span{font-size:.75rem;color:#71837e;font-weight:600}
     #childGrowthChartApp .cgc-metric strong{color:#315b51;font-size:.95rem}
     #childGrowthChartApp .cgc-note{padding-top:.65rem;border-top:1px dashed rgba(49,91,81,.22);font-size:.82rem;color:#71837e}
+    #childGrowthChartApp .cgc-privacy{margin:0;padding:.45rem .7rem;border-radius:12px;background:#f5faf8;color:#647a73;text-align:center;line-height:1.55}
     #childGrowthChartApp .cgc-sources{margin:0;padding:.1rem .35rem;color:#71837e;text-align:center;line-height:1.65}
     #childGrowthChartApp .cgc-sources a{color:var(--cgc-green-dark);text-decoration:underline;text-decoration-style:dotted}
     #childGrowthChartApp .tooltip{position:absolute;display:none;pointer-events:none;padding:.4rem .6rem;border-radius:10px;background:#315b51;color:#fff;font-size:.78rem;font-weight:700;box-shadow:0 6px 18px rgba(49,91,81,.22)}
@@ -1070,6 +1073,7 @@ svg {
     </div>
   </div>
 
+  <p class="text-small cgc-privacy">🔒 ระบบบันทึกเฉพาะจำนวนการใช้งาน กลุ่มผลประเมิน เพศ และอายุเต็มปี ณ วันที่วัดล่าสุด โดยไม่บันทึกวันเกิด วันที่วัด ส่วนสูง หรือน้ำหนัก</p>
   <p class="text-small cgc-sources">กราฟส่วนสูงและน้ำหนักอ้างอิง <a href="https://thaipedendo.org/thai-growth-chart-by-tspe/" target="_blank" rel="noopener">สมาคมต่อมไร้ท่อเด็กและวัยรุ่นไทย</a> · การคัดกรองภาวะน้ำหนักใช้ BMI ตามอายุจาก <a href="https://www.who.int/toolkits/child-growth-standards/standards/body-mass-index-for-age-bmi-for-age" target="_blank" rel="noopener">WHO อายุ 2–5 ปี</a> และ <a href="https://www.who.int/tools/growth-reference-data-for-5to19-years/indicators/bmi-for-age" target="_blank" rel="noopener">WHO อายุ 5–19 ปี</a></p>
   </main>
 
@@ -1091,6 +1095,15 @@ svg {
       const percentileNames = ["P97","P90","P75","P50","P25","P10","P3"];
       const percentileValues = [97,90,75,50,25,10,3];
       const zValues = [1.8808,1.2816,.6745,0,-.6745,-1.2816,-1.8808];
+      const analyticsConfig = Object.freeze({
+        url:"https://pbpnpbldwgaduyqjazwg.supabase.co",
+        key:"sb_publishable_4LoDGymxFQMDjWjGIRakcQ_gzYzEd-e",
+        version:"growthcheck-2026-09-04"
+      });
+      const analyticsVisitorStorageKey = "growthcheck_visitor_id_v1";
+      const analyticsRunId = createUuid();
+      let analyticsVisitorFallback = null;
+      let analyticsStartPromise = null;
       const curves = {
         male:[
           [92.8,103,111.2,118.6,123.8,129.9,135.8,141.5,147.6,155,164,171.9,176.9,179.3,180.5,181.1,181.3,181.6],
@@ -1122,6 +1135,79 @@ svg {
       let currentData = null;
       let openDateControl = null;
       const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+
+      function createUuid() {
+        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+          crypto.getRandomValues(bytes);
+        } else {
+          for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+        }
+        bytes[6] = (bytes[6] & 15) | 64;
+        bytes[8] = (bytes[8] & 63) | 128;
+        const hex = [...bytes].map(value => value.toString(16).padStart(2,"0"));
+        return `${hex.slice(0,4).join("")}-${hex.slice(4,6).join("")}-${hex.slice(6,8).join("")}-${hex.slice(8,10).join("")}-${hex.slice(10).join("")}`;
+      }
+
+      function analyticsVisitorId() {
+        if (analyticsVisitorFallback) return analyticsVisitorFallback;
+        try {
+          const stored = localStorage.getItem(analyticsVisitorStorageKey);
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stored || "")) return stored;
+          const created = createUuid();
+          localStorage.setItem(analyticsVisitorStorageKey, created);
+          return created;
+        } catch (error) {
+          analyticsVisitorFallback = createUuid();
+          return analyticsVisitorFallback;
+        }
+      }
+
+      async function callAnalytics(functionName, payload) {
+        const response = await fetch(`${analyticsConfig.url}/rest/v1/rpc/${functionName}`, {
+          method:"POST",
+          headers:{"apikey":analyticsConfig.key,"content-type":"application/json"},
+          body:JSON.stringify(payload),
+          keepalive:true
+        });
+        if (!response.ok) throw new Error(`analytics ${functionName} returned ${response.status}`);
+      }
+
+      function ensureAnalyticsStarted() {
+        if (!analyticsStartPromise) {
+          analyticsStartPromise = Promise.all([
+            callAnalytics("register_growthcheck_visitor", {p_visitor_id:analyticsVisitorId(),p_app_version:analyticsConfig.version}),
+            callAnalytics("start_growthcheck_screening", {p_run_id:analyticsRunId,p_app_version:analyticsConfig.version})
+          ]).catch(error => {
+            analyticsStartPromise = null;
+            throw error;
+          });
+        }
+        return analyticsStartPromise;
+      }
+
+      function reportAnalyticsError(error) {
+        console.warn("ระบบสถิติไม่สามารถบันทึกเหตุการณ์นี้ได้", error);
+      }
+
+      async function trackAnalyticsCompletion(result, data) {
+        try {
+          const latest = data.points[data.points.length - 1];
+          await ensureAnalyticsStarted();
+          await callAnalytics("complete_growthcheck_screening", {
+            p_run_id:analyticsRunId,
+            p_result_level:result.level,
+            p_issue_codes:result.issueCodes,
+            p_measurement_count:data.points.length,
+            p_app_version:analyticsConfig.version,
+            p_sex:data.sex,
+            p_age_years:ageParts(data.dob, latest.date).years
+          });
+        } catch (error) {
+          reportAnalyticsError(error);
+        }
+      }
 
       function setStep(step) {
         steps.forEach((item, index) => item.classList.toggle("is-active", index < step));
@@ -1156,6 +1242,35 @@ svg {
 
       function decimalAge(dob, date) {
         return daysBetween(dob, date) / 365.2425;
+      }
+
+      function addCalendarMonths(date, months) {
+        const firstOfTargetMonth = new Date(date.getFullYear(), date.getMonth() + months, 1);
+        const lastDay = new Date(firstOfTargetMonth.getFullYear(), firstOfTargetMonth.getMonth() + 1, 0).getDate();
+        return new Date(firstOfTargetMonth.getFullYear(), firstOfTargetMonth.getMonth(), Math.min(date.getDate(), lastDay));
+      }
+
+      function ageParts(dob, date) {
+        let totalMonths = (date.getFullYear() - dob.getFullYear()) * 12 + date.getMonth() - dob.getMonth();
+        let monthAnchor = addCalendarMonths(dob, totalMonths);
+        if (monthAnchor > date) {
+          totalMonths -= 1;
+          monthAnchor = addCalendarMonths(dob, totalMonths);
+        }
+        return {
+          years:Math.floor(totalMonths / 12),
+          months:totalMonths % 12,
+          days:Math.round(daysBetween(monthAnchor, date))
+        };
+      }
+
+      function formatThaiAge(dob, date) {
+        const age = ageParts(dob, date);
+        const parts = [];
+        if (age.years) parts.push(`${age.years} ปี`);
+        if (age.months) parts.push(`${age.months} เดือน`);
+        if (age.days || !parts.length) parts.push(`${age.days} วัน`);
+        return parts.join(" ");
       }
 
       function percentileLabel(value) {
@@ -1447,7 +1562,9 @@ svg {
         today.setHours(0, 0, 0, 0);
         if (dob > today) throw new Error("วันเกิดต้องไม่เป็นวันที่ในอนาคต");
         const points = [];
-        [...measurementsEl.querySelectorAll(".cgc-measurement")].forEach(row => {
+        const measurementRows = [...measurementsEl.querySelectorAll(".cgc-measurement")];
+        measurementRows.forEach(row => row.classList.remove("is-invalid"));
+        measurementRows.forEach((row, index) => {
           const dateText = row.querySelector(".cgc-date").value;
           const heightValue = row.querySelector(".cgc-height").value;
           const weightValue = row.querySelector(".cgc-weight").value;
@@ -1455,10 +1572,23 @@ svg {
           if (!dateText || !heightValue || !weightValue) throw new Error("กรุณากรอกวันที่ ส่วนสูง และน้ำหนักให้ครบในแต่ละครั้ง");
           const height = Number(heightValue);
           const weight = Number(weightValue);
-          const {date,dateValue} = parseThaiDate(dateText, "วันที่วัด");
+          const {date,dateValue} = parseThaiDate(dateText, `วันที่วัดครั้งที่ ${index + 1} `);
           if (date > today) throw new Error("วันที่วัดต้องไม่เป็นวันที่ในอนาคต");
+          if (date < dob) {
+            row.classList.add("is-invalid");
+            throw new Error(`ข้อมูลครั้งที่ ${index + 1} มีวันที่วัดก่อนวันเกิด กรุณาตรวจวัน เดือน และปี พ.ศ.`);
+          }
           const age = decimalAge(dob, date);
-          if (age < 2 || age > 19) throw new Error("กราฟนี้รับข้อมูลที่วัดเมื่อเด็กอายุ 2–19 ปี");
+          const exactAge = ageParts(dob, date);
+          const ageText = formatThaiAge(dob, date);
+          if (exactAge.years < 2) {
+            row.classList.add("is-invalid");
+            throw new Error(`ข้อมูลครั้งที่ ${index + 1} วัดตอนเด็กอายุ ${ageText} ซึ่งต่ำกว่าช่วงกราฟ 2–19 ปี กรุณาลบข้อมูลครั้งนี้ หรือใช้ข้อมูลที่วัดหลังเด็กอายุครบ 2 ปี`);
+          }
+          if (exactAge.years > 19 || (exactAge.years === 19 && (exactAge.months > 0 || exactAge.days > 0))) {
+            row.classList.add("is-invalid");
+            throw new Error(`ข้อมูลครั้งที่ ${index + 1} วัดตอนเด็กอายุ ${ageText} ซึ่งเกินช่วงกราฟ 2–19 ปี กรุณาลบข้อมูลครั้งนี้ หรือใช้ข้อมูลที่วัดไม่เกินอายุ 19 ปี`);
+          }
           if (height < 70 || height > 210) throw new Error("กรุณาตรวจส่วนสูงและหน่วยเซนติเมตร");
           if (!Number.isFinite(weight) || weight < 4 || weight > 200) throw new Error("กรุณาตรวจน้ำหนักและหน่วยกิโลกรัม");
           const bmi = weight / Math.pow(height / 100, 2);
@@ -1596,6 +1726,7 @@ svg {
       function evaluate(data) {
         const points = data.points;
         const latest = points[points.length - 1];
+        const issueCodes = new Set();
         const reasons = [
           `ส่วนสูงล่าสุดอยู่ที่ ${percentileLabel(latest.percentile)}`,
           `น้ำหนักล่าสุดอยู่ที่ ${percentileLabel(latest.weightPercentile)} ของน้ำหนักตามอายุ`
@@ -1605,12 +1736,14 @@ svg {
         let text = "ติดตามส่วนสูงด้วยวิธีเดิมทุก 3 เดือน และดูว่าแนวจุดยังวิ่งใกล้เส้นเดิมหรือไม่";
 
         if (latest.percentile < 3) {
+          issueCodes.add("height_below_p3");
           level = "see";
           title = "ส่วนสูงต่ำกว่า P3 ควรนัดประเมิน";
           text = "ควรพบกุมารแพทย์หรือกุมารแพทย์ต่อมไร้ท่อ เพื่อตรวจส่วนสูงมาตรฐานและประเมินร่วมกับส่วนสูงพ่อแม่";
           reasons.push("ส่วนสูงต่ำกว่าเส้น P3 ของกราฟอ้างอิง");
         }
         if (data.early) {
+          issueCodes.add("early_puberty");
           level = "see";
           title = "ควรนัดประเมินเรื่องวัยรุ่นก่อนวัย";
           text = "การเข้าสู่วัยรุ่นก่อนอายุที่กำหนดควรได้รับการประเมิน แม้ส่วนสูงปัจจุบันยังไม่ต่ำ";
@@ -1623,6 +1756,7 @@ svg {
           const zDrop = latest.z - previous.z;
           reasons.push(`ช่วงล่าสุดสูงขึ้นเทียบเป็นประมาณ ${velocity.toFixed(1)} ซม./ปี`);
           if (days < 90) {
+            issueCodes.add("interval_too_short");
             if (level !== "see") {
               level = "confirm";
               title = "ช่วงเวลาวัดสั้นเกินไป ยังสรุปแนวโน้มไม่ได้";
@@ -1630,6 +1764,7 @@ svg {
             }
             reasons.push("ข้อมูลสองครั้งล่าสุดห่างกันน้อยกว่า 3 เดือน");
           } else if (zDrop <= -1) {
+            issueCodes.add("height_curve_drop");
             level = "see";
             title = "แนวส่วนสูงตกลงชัดเจน ควรนัดประเมิน";
             text = "ควรพบกุมารแพทย์เพื่อตรวจการวัดและหาสาเหตุของการตกข้ามแนวกราฟ";
@@ -1637,6 +1772,7 @@ svg {
           } else if (data.puberty === "no") {
             let cutoff = latest.age < 4 ? 5.5 : latest.age < 6 ? 5 : data.sex === "female" ? 4.5 : 4;
             if (velocity < cutoff) {
+              issueCodes.add("slow_growth_velocity");
               level = "see";
               title = "อัตราการโตช้ากว่าเกณฑ์คัดกรอง ควรนัดประเมิน";
               text = "ควรให้แพทย์วัดยืนยัน ลงกราฟ และประเมินสาเหตุร่วมกับประวัติสุขภาพ";
@@ -1644,6 +1780,7 @@ svg {
             }
           }
         } else {
+          issueCodes.add("single_measurement");
           level = latest.percentile < 3 ? "see" : "confirm";
           if (level === "confirm") {
             title = "มีเพียง 1 จุด จึงยังดูแนวการโตไม่ได้";
@@ -1652,6 +1789,14 @@ svg {
           reasons.push("ต้องมีอย่างน้อย 2 จุดจึงคำนวณอัตราการโตและการเปลี่ยนแนวกราฟได้");
         }
         reasons.push(`BMI ล่าสุด ${latest.bmi.toFixed(1)} กก./ม² — ${latest.bmiStatus.detail}`);
+        const bmiIssueCode = {
+          "ผอมมาก":"bmi_very_thin",
+          "ผอม":"bmi_thin",
+          "เสี่ยงน้ำหนักเกิน":"bmi_risk_overweight",
+          "น้ำหนักเกิน":"bmi_overweight",
+          "อ้วน":"bmi_obesity"
+        }[latest.bmiStatus.category];
+        if (bmiIssueCode) issueCodes.add(bmiIssueCode);
         if (latest.bmiStatus.level === "see") {
           const alreadySee = level === "see";
           level = "see";
@@ -1662,7 +1807,7 @@ svg {
           title = `${latest.bmiStatus.category} ควรวัดยืนยันและติดตาม`;
           text = "ตรวจหน่วยและวิธีวัดอีกครั้ง แล้วปรึกษากุมารแพทย์หรือบุคลากรสุขภาพในการตรวจตามนัด";
         }
-        return {level,title,text,reasons};
+        return {level,title,text,reasons,issueCodes:[...issueCodes]};
       }
 
       function showSummary(data) {
@@ -1685,6 +1830,7 @@ svg {
           list.appendChild(item);
         });
         document.getElementById("cgcBadge").textContent = result.level === "see" ? "ควรพบแพทย์" : result.level === "confirm" ? "ต้องมีข้อมูลเพิ่ม" : "ติดตามต่อ";
+        return result;
       }
 
       function updateSexUi() {
@@ -1707,7 +1853,8 @@ svg {
         try {
           currentData = readData();
           draw(currentData);
-          showSummary(currentData);
+          const result = showSummary(currentData);
+          void trackAnalyticsCompletion(result, currentData);
         } catch (error) {
           errorEl.textContent = error.message;
           errorEl.hidden = false;
@@ -1717,6 +1864,11 @@ svg {
       });
       document.getElementById("cgcAdd").addEventListener("click", () => addMeasurement());
       form.addEventListener("input", () => {
+        void ensureAnalyticsStarted().catch(reportAnalyticsError);
+      }, {once:true});
+      form.addEventListener("input", event => {
+        const measurement = event.target.closest(".cgc-measurement");
+        if (measurement) measurement.classList.remove("is-invalid");
         if (sexValue() && document.getElementById("cgcDob").value) setStep(2);
       });
       form.querySelectorAll('input[name="cgcSex"]').forEach(input => input.addEventListener("change", updateSexUi));
