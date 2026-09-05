@@ -1073,7 +1073,7 @@ svg {
     </div>
   </div>
 
-  <p class="text-small cgc-privacy">🔒 ระบบบันทึกเฉพาะจำนวนการใช้งาน กลุ่มผลประเมิน เพศ และอายุเต็มปี ณ วันที่วัดล่าสุด โดยไม่บันทึกวันเกิด วันที่วัด ส่วนสูง หรือน้ำหนัก</p>
+  <p class="text-small cgc-privacy">🔒 ระบบบันทึกจำนวนการใช้งาน กลุ่มผลประเมิน เพศ อายุเต็มปี ส่วนสูงและน้ำหนักล่าสุด โดยไม่บันทึกวันเกิด วันที่วัด IP หรือแหล่งที่มา</p>
   <p class="text-small cgc-sources">กราฟส่วนสูงและน้ำหนักอ้างอิง <a href="https://thaipedendo.org/thai-growth-chart-by-tspe/" target="_blank" rel="noopener">สมาคมต่อมไร้ท่อเด็กและวัยรุ่นไทย</a> · การคัดกรองภาวะน้ำหนักใช้ BMI ตามอายุจาก <a href="https://www.who.int/toolkits/child-growth-standards/standards/body-mass-index-for-age-bmi-for-age" target="_blank" rel="noopener">WHO อายุ 2–5 ปี</a> และ <a href="https://www.who.int/tools/growth-reference-data-for-5to19-years/indicators/bmi-for-age" target="_blank" rel="noopener">WHO อายุ 5–19 ปี</a></p>
   </main>
 
@@ -1098,7 +1098,7 @@ svg {
       const analyticsConfig = Object.freeze({
         url:"https://pbpnpbldwgaduyqjazwg.supabase.co",
         key:"sb_publishable_4LoDGymxFQMDjWjGIRakcQ_gzYzEd-e",
-        version:"growthcheck-2026-09-04"
+        version:"growthcheck-2026-09-04-2"
       });
       const analyticsVisitorStorageKey = "growthcheck_visitor_id_v1";
       const analyticsRunId = createUuid();
@@ -1195,14 +1195,16 @@ svg {
         try {
           const latest = data.points[data.points.length - 1];
           await ensureAnalyticsStarted();
-          await callAnalytics("complete_growthcheck_screening", {
+          await callAnalytics("complete_growthcheck_screening_v2", {
             p_run_id:analyticsRunId,
             p_result_level:result.level,
             p_issue_codes:result.issueCodes,
             p_measurement_count:data.points.length,
             p_app_version:analyticsConfig.version,
             p_sex:data.sex,
-            p_age_years:ageParts(data.dob, latest.date).years
+            p_age_years:ageParts(data.dob, latest.date).years,
+            p_latest_height_cm:Number(latest.height.toFixed(1)),
+            p_latest_weight_kg:Number(latest.weight.toFixed(1))
           });
         } catch (error) {
           reportAnalyticsError(error);
