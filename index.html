@@ -882,6 +882,11 @@ svg {
     #childGrowthChartApp .cgc-location .form-label{min-width:0}
     #childGrowthChartApp .cgc-location .form-select{width:100%;min-width:0}
     #childGrowthChartApp .cgc-location .form-select:disabled{cursor:not-allowed;background:#f1f5f3;color:#91a09c}
+    #childGrowthChartApp .cgc-puberty-card{gap:.48rem;padding:.72rem;border:1px solid #e1eee8;border-radius:16px;background:#fbfefd}
+    #childGrowthChartApp .cgc-puberty-card legend{margin:0}
+    #childGrowthChartApp .cgc-puberty-hint{margin:0;color:#71847e;font-size:.74rem;line-height:1.55}
+    #childGrowthChartApp .cgc-puberty-followup{display:grid;gap:.4rem;margin-top:.08rem;padding:.62rem;border-radius:13px;background:#eef9f5}
+    #childGrowthChartApp .cgc-puberty-followup .form-label{font-size:.78rem}
     #childGrowthChartApp .cgc-sex{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
     #childGrowthChartApp .cgc-sex .form-check{position:relative;display:flex;align-items:center;justify-content:center;min-height:50px;border:1.5px solid #d9e8e2;border-radius:15px;background:#fff;cursor:pointer;font-weight:700}
     #childGrowthChartApp .cgc-sex .form-check:has(input:checked){border-color:var(--cgc-green);background:var(--cgc-mint);color:var(--cgc-green-dark);box-shadow:0 0 0 3px rgba(4,154,120,.10)}
@@ -1027,16 +1032,22 @@ svg {
         </label>
       </div>
 
-      <fieldset>
+      <fieldset class="cgc-puberty-card">
         <legend>เริ่มเข้าสู่วัยรุ่นแล้วหรือยัง?</legend>
-        <select class="form-select" id="cgcPuberty">
-          <option value="unsure">ไม่แน่ใจ</option>
+        <p class="cgc-puberty-hint" id="cgcPubertyHint">เลือกเพศก่อน เพื่อดูคำอธิบายที่เหมาะกับเด็ก</p>
+        <select class="form-select" id="cgcPuberty" required>
+          <option value="">เลือกคำตอบ</option>
           <option value="no">ยังไม่เริ่ม</option>
           <option value="yes">เริ่มแล้ว</option>
+          <option value="unsure">ไม่แน่ใจ</option>
         </select>
+        <div class="cgc-puberty-followup" id="cgcPubertyOnsetWrap" hidden>
+          <label class="form-label" for="cgcPubertyOnset" id="cgcPubertyOnsetLabel">เริ่มสังเกตครั้งแรกช่วงอายุใด?</label>
+          <select class="form-select" id="cgcPubertyOnset">
+            <option value="">เลือกช่วงอายุ</option>
+          </select>
+        </div>
       </fieldset>
-
-      <label class="form-check" id="cgcEarlyWrap" hidden><input class="form-check-input" type="checkbox" id="cgcEarly"><span class="form-check-label" id="cgcEarlyLabel"></span></label>
 
       <fieldset>
         <legend>ประวัติส่วนสูงและน้ำหนัก</legend>
@@ -1113,9 +1124,10 @@ svg {
       const percentileValues = [97,90,75,50,25,10,3];
       const zValues = [1.8808,1.2816,.6745,0,-.6745,-1.2816,-1.8808];
       const analyticsConfig = Object.freeze({
+        enabled:false,
         url:"https://pbpnpbldwgaduyqjazwg.supabase.co",
         key:"sb_publishable_4LoDGymxFQMDjWjGIRakcQ_gzYzEd-e",
-        version:"growthcheck-2026-09-05-3"
+        version:"growthcheck-2026-09-05-4-preview"
       });
       const analyticsVisitorStorageKey = "growthcheck_visitor_id_v1";
       const analyticsRunId = createUuid();
@@ -1226,6 +1238,7 @@ svg {
       }
 
       function ensureAnalyticsStarted() {
+        if (!analyticsConfig.enabled) return Promise.resolve();
         if (!analyticsStartPromise) {
           analyticsStartPromise = Promise.all([
             callAnalytics("register_growthcheck_visitor", {p_visitor_id:analyticsVisitorId(),p_app_version:analyticsConfig.version}),
@@ -1243,6 +1256,7 @@ svg {
       }
 
       async function trackAnalyticsCompletion(result, data) {
+        if (!analyticsConfig.enabled) return;
         try {
           const latest = data.points[data.points.length - 1];
           await ensureAnalyticsStarted();
@@ -1612,10 +1626,14 @@ svg {
         const dobText = document.getElementById("cgcDob").value;
         const provinceCode = Number(document.getElementById("cgcProvince").value);
         const districtCode = Number(document.getElementById("cgcDistrict").value);
+        const puberty = document.getElementById("cgcPuberty").value;
+        const pubertyOnset = document.getElementById("cgcPubertyOnset").value;
         if (!sex) throw new Error("กรุณาเลือกเพศเมื่อแรกเกิด");
         if (!dobText) throw new Error("กรุณากรอกวันเกิด");
         if (!provinceCode) throw new Error("กรุณาเลือกจังหวัด");
         if (!districtCode) throw new Error("กรุณาเลือกอำเภอหรือเขต");
+        if (!puberty) throw new Error("กรุณาเลือกว่าลูกเริ่มเข้าสู่วัยรุ่นแล้วหรือยัง");
+        if (puberty === "yes" && !pubertyOnset) throw new Error("กรุณาเลือกช่วงอายุที่เริ่มสังเกตลักษณะวัยรุ่น");
         const {date:dob} = parseThaiDate(dobText, "วันเกิด");
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1660,7 +1678,7 @@ svg {
           if (points[i].dateValue === points[i - 1].dateValue) throw new Error("วันที่วัดแต่ละครั้งต้องไม่ซ้ำกัน");
           if (points[i].height < points[i - 1].height) throw new Error("ส่วนสูงครั้งหลังน้อยกว่าครั้งก่อน กรุณาตรวจตัวเลขหรือวัดซ้ำ");
         }
-        return {sex,dob,provinceCode,districtCode,points,puberty:document.getElementById("cgcPuberty").value,early:document.getElementById("cgcEarly").checked};
+        return {sex,dob,provinceCode,districtCode,points,puberty,pubertyOnset};
       }
 
       function makePath(points, x, y) {
@@ -1801,12 +1819,71 @@ svg {
           text = "ควรพบกุมารแพทย์หรือกุมารแพทย์ต่อมไร้ท่อ เพื่อตรวจส่วนสูงมาตรฐานและประเมินร่วมกับส่วนสูงพ่อแม่";
           reasons.push("ส่วนสูงต่ำกว่าเส้น P3 ของกราฟอ้างอิง");
         }
-        if (data.early) {
+
+        const delayedPubertyAge = data.sex === "female" ? 13 : 14;
+        const pubertySign = data.sex === "female" ? "เต้านม" : "อัณฑะหรืออวัยวะเพศ";
+        if (data.puberty === "no") {
+          if (latest.age >= delayedPubertyAge) {
+            issueCodes.add("delayed_puberty");
+            if (level !== "see") {
+              level = "see";
+              title = "ควรนัดประเมินเรื่องเข้าสู่วัยรุ่นช้า";
+              text = `ยังไม่พบการเปลี่ยนแปลงของ${pubertySign}ในช่วงอายุที่ควรเริ่มแล้ว ควรให้แพทย์ตรวจยืนยัน`;
+            }
+            reasons.push(`ยังไม่เริ่มลักษณะวัยรุ่นเมื่ออายุ ${latest.age.toFixed(1)} ปี`);
+          } else {
+            reasons.push("ยังไม่เริ่มลักษณะวัยรุ่น และอายุยังไม่ถึงเกณฑ์วัยรุ่นช้า");
+          }
+        } else if (data.puberty === "unsure") {
+          issueCodes.add("puberty_uncertain");
+          reasons.push("ยังสรุปการเข้าสู่วัยรุ่นไม่ได้จากข้อมูลที่กรอก");
+          if (latest.age >= delayedPubertyAge && level === "watch") {
+            level = "confirm";
+            title = "ต้องมีข้อมูลเพิ่มเรื่องการเข้าสู่วัยรุ่น";
+            text = `อายุถึงช่วงที่ควรประเมิน${pubertySign}แล้ว หากผู้ปกครองไม่แน่ใจ ควรให้แพทย์ตรวจยืนยัน`;
+          }
+        } else if (data.pubertyOnset === "female_lt7") {
           issueCodes.add("early_puberty");
-          level = "see";
-          title = "ควรนัดประเมินเรื่องวัยรุ่นก่อนวัย";
-          text = "การเข้าสู่วัยรุ่นก่อนอายุที่กำหนดควรได้รับการประเมิน แม้ส่วนสูงปัจจุบันยังไม่ต่ำ";
-          reasons.push(data.sex === "female" ? "มีเต้านมก่อนอายุ 8 ปี" : "มีลักษณะวัยรุ่นก่อนอายุ 9 ปี");
+          if (level !== "see") {
+            level = "see";
+            title = "ควรนัดประเมินเรื่องวัยรุ่นก่อนวัย";
+            text = "เริ่มมีเต้านมก่อนอายุ 7 ปี ควรได้รับการประเมิน แม้ส่วนสูงปัจจุบันยังไม่ต่ำ";
+          }
+          reasons.push("เริ่มมีเต้านมก่อนอายุ 7 ปี");
+        } else if (data.pubertyOnset === "female_7_8") {
+          issueCodes.add("possible_early_puberty");
+          if (level === "watch") {
+            level = "confirm";
+            title = "ควรติดตามการเปลี่ยนแปลงของวัยรุ่น";
+            text = "เริ่มมีเต้านมช่วงอายุ 7–ก่อน 8 ปี ควรวัดส่วนสูงและติดตามการเปลี่ยนแปลงซ้ำใน 4–6 เดือน";
+          }
+          reasons.push("เริ่มมีเต้านมช่วงอายุ 7–ก่อน 8 ปี");
+        } else if (data.pubertyOnset === "male_lt9") {
+          issueCodes.add("early_puberty");
+          if (level !== "see") {
+            level = "see";
+            title = "ควรนัดประเมินเรื่องวัยรุ่นก่อนวัย";
+            text = "เด็กชายเริ่มมีลักษณะวัยรุ่นก่อนอายุ 9 ปี ควรได้รับการประเมิน";
+          }
+          reasons.push("เริ่มมีลักษณะวัยรุ่นก่อนอายุ 9 ปี");
+        } else if (data.pubertyOnset === "female_ge13" || data.pubertyOnset === "male_ge14") {
+          issueCodes.add("delayed_puberty");
+          if (level !== "see") {
+            level = "see";
+            title = "ควรนัดประเมินเรื่องเข้าสู่วัยรุ่นช้า";
+            text = "ลักษณะวัยรุ่นเริ่มช้ากว่าช่วงอายุคัดกรอง ควรให้แพทย์ประเมินเพิ่มเติม";
+          }
+          reasons.push(`เริ่มมีลักษณะวัยรุ่นเมื่ออายุ ${data.sex === "female" ? "13" : "14"} ปีขึ้นไป`);
+        } else if (data.pubertyOnset === "unknown") {
+          issueCodes.add("puberty_uncertain");
+          reasons.push("เริ่มมีลักษณะวัยรุ่นแล้ว แต่จำช่วงอายุที่เริ่มไม่ได้");
+          if (level === "watch") {
+            level = "confirm";
+            title = "ต้องมีข้อมูลเพิ่มเรื่องช่วงอายุที่เริ่มวัยรุ่น";
+            text = "กราฟการเติบโตยังแสดงได้ แต่ยังสรุปว่าเริ่มเร็วหรือช้าไม่ได้";
+          }
+        } else {
+          reasons.push("ช่วงอายุที่เริ่มวัยรุ่นอยู่ในช่วงคัดกรองทั่วไป");
         }
         if (points.length > 1) {
           const previous = points[points.length - 2];
@@ -1814,9 +1891,16 @@ svg {
           const velocity = (latest.height - previous.height) / days * 365.2425;
           const zDrop = latest.z - previous.z;
           reasons.push(`ช่วงล่าสุดสูงขึ้นเทียบเป็นประมาณ ${velocity.toFixed(1)} ซม./ปี`);
+          if (data.pubertyOnset === "female_7_8" && days >= 90 && velocity > 6) {
+            issueCodes.add("early_puberty");
+            level = "see";
+            title = "วัยรุ่นเริ่มเร็วร่วมกับส่วนสูงที่เร่งขึ้น";
+            text = "ควรนัดประเมินการเข้าสู่วัยรุ่นและตรวจแนวการเติบโตเพิ่มเติม";
+            reasons.push("ส่วนสูงเพิ่มเร็วกว่า 6 ซม./ปีร่วมกับการเริ่มมีเต้านมก่อน 8 ปี");
+          }
           if (days < 90) {
             issueCodes.add("interval_too_short");
-            if (level !== "see") {
+            if (level === "watch") {
               level = "confirm";
               title = "ช่วงเวลาวัดสั้นเกินไป ยังสรุปแนวโน้มไม่ได้";
               text = "วัดซ้ำเมื่อห่างจากครั้งก่อนรวม 3–6 เดือน";
@@ -1837,11 +1921,22 @@ svg {
               text = "ควรให้แพทย์วัดยืนยัน ลงกราฟ และประเมินสาเหตุร่วมกับประวัติสุขภาพ";
               reasons.push(`ยังไม่เข้าสู่วัยรุ่นและโตช้ากว่าประมาณ ${cutoff} ซม./ปี`);
             }
+          } else if (data.puberty === "unsure") {
+            const cutoff = latest.age < 4 ? 5.5 : latest.age < 6 ? 5 : data.sex === "female" ? 4.5 : 4;
+            if (velocity < cutoff) {
+              issueCodes.add("slow_growth_velocity");
+              if (level === "watch") {
+                level = "confirm";
+                title = "อัตราการโตต่ำ แต่ยังไม่ทราบระยะวัยรุ่น";
+                text = "ควรวัดยืนยันและประเมินลักษณะวัยรุ่นร่วมกัน ก่อนสรุปว่าโตช้าผิดปกติหรือไม่";
+              }
+              reasons.push(`โตช้ากว่าเกณฑ์ก่อนวัยรุ่นประมาณ ${cutoff} ซม./ปี แต่ยังไม่ทราบระยะวัยรุ่น`);
+            }
           }
         } else {
           issueCodes.add("single_measurement");
-          level = latest.percentile < 3 ? "see" : "confirm";
-          if (level === "confirm") {
+          if (level === "watch") {
+            level = "confirm";
             title = "มีเพียง 1 จุด จึงยังดูแนวการโตไม่ได้";
             text = "เพิ่มส่วนสูงครั้งเก่าหรือวัดซ้ำอีกครั้งใน 3–6 เดือน";
           }
@@ -1894,16 +1989,44 @@ svg {
 
       function updateSexUi() {
         const sex = sexValue();
-        const earlyWrap = document.getElementById("cgcEarlyWrap");
-        const earlyLabel = document.getElementById("cgcEarlyLabel");
+        const hint = document.getElementById("cgcPubertyHint");
         if (!sex) {
-          earlyWrap.hidden = true;
+          hint.textContent = "เลือกเพศก่อน เพื่อดูคำอธิบายที่เหมาะกับเด็ก";
         } else {
-          earlyWrap.hidden = false;
-          earlyLabel.textContent = sex === "female" ? "เริ่มมีเต้านมก่อนอายุ 8 ปี" : "มีลักษณะวัยรุ่นก่อนอายุ 9 ปี";
+          hint.textContent = sex === "female"
+            ? "เด็กหญิงให้สังเกตว่าเต้านมเริ่มโต ไม่ใช่เพียงมีขน กลิ่นตัว หรือสิว"
+            : "เด็กชายให้สังเกตว่าอัณฑะหรืออวัยวะเพศเริ่มโต ไม่ใช่เพียงมีขน กลิ่นตัว หรือสิว";
           setStep(document.getElementById("cgcDob").value ? 2 : 1);
           draw(currentData && currentData.sex === sex ? currentData : null);
         }
+        updatePubertyUi();
+      }
+
+      function updatePubertyUi() {
+        const sex = sexValue();
+        const puberty = document.getElementById("cgcPuberty").value;
+        const wrap = document.getElementById("cgcPubertyOnsetWrap");
+        const select = document.getElementById("cgcPubertyOnset");
+        const shouldShow = Boolean(sex && puberty === "yes");
+        wrap.hidden = !shouldShow;
+        select.required = shouldShow;
+        if (!shouldShow) {
+          select.value = "";
+          return;
+        }
+
+        const previousSex = select.dataset.sex;
+        if (previousSex === sex) return;
+        select.dataset.sex = sex;
+        const options = sex === "female"
+          ? [["","เลือกช่วงอายุ"],["female_lt7","ก่อน 7 ปี"],["female_7_8","7 ปี ถึงก่อน 8 ปี"],["female_8_13","8 ปี ถึงก่อน 13 ปี"],["female_ge13","13 ปีขึ้นไป"],["unknown","จำไม่ได้ / ไม่แน่ใจ"]]
+          : [["","เลือกช่วงอายุ"],["male_lt9","ก่อน 9 ปี"],["male_9_14","9 ปี ถึงก่อน 14 ปี"],["male_ge14","14 ปีขึ้นไป"],["unknown","จำไม่ได้ / ไม่แน่ใจ"]];
+        select.replaceChildren(...options.map(([value, label]) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = label;
+          return option;
+        }));
       }
 
       form.addEventListener("submit", event => {
@@ -1931,6 +2054,7 @@ svg {
         if (sexValue() && document.getElementById("cgcDob").value) setStep(2);
       });
       form.querySelectorAll('input[name="cgcSex"]').forEach(input => input.addEventListener("change", updateSexUi));
+      document.getElementById("cgcPuberty").addEventListener("change", updatePubertyUi);
       const chartObserver = new ResizeObserver(() => draw(currentData));
       chartObserver.observe(heightWrap);
       chartObserver.observe(weightWrap);
