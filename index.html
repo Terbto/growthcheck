@@ -1124,10 +1124,10 @@ svg {
       const percentileValues = [97,90,75,50,25,10,3];
       const zValues = [1.8808,1.2816,.6745,0,-.6745,-1.2816,-1.8808];
       const analyticsConfig = Object.freeze({
-        enabled:false,
+        enabled:true,
         url:"https://pbpnpbldwgaduyqjazwg.supabase.co",
         key:"sb_publishable_4LoDGymxFQMDjWjGIRakcQ_gzYzEd-e",
-        version:"growthcheck-2026-09-05-4-preview"
+        version:"growthcheck-2026-09-05-4"
       });
       const analyticsVisitorStorageKey = "growthcheck_visitor_id_v1";
       const analyticsRunId = createUuid();
@@ -1835,12 +1835,14 @@ svg {
             reasons.push("ยังไม่เริ่มลักษณะวัยรุ่น และอายุยังไม่ถึงเกณฑ์วัยรุ่นช้า");
           }
         } else if (data.puberty === "unsure") {
-          issueCodes.add("puberty_uncertain");
           reasons.push("ยังสรุปการเข้าสู่วัยรุ่นไม่ได้จากข้อมูลที่กรอก");
-          if (latest.age >= delayedPubertyAge && level === "watch") {
-            level = "confirm";
-            title = "ต้องมีข้อมูลเพิ่มเรื่องการเข้าสู่วัยรุ่น";
-            text = `อายุถึงช่วงที่ควรประเมิน${pubertySign}แล้ว หากผู้ปกครองไม่แน่ใจ ควรให้แพทย์ตรวจยืนยัน`;
+          if (latest.age >= delayedPubertyAge) {
+            issueCodes.add("puberty_uncertain");
+            if (level === "watch") {
+              level = "confirm";
+              title = "ต้องมีข้อมูลเพิ่มเรื่องการเข้าสู่วัยรุ่น";
+              text = `อายุถึงช่วงที่ควรประเมิน${pubertySign}แล้ว หากผู้ปกครองไม่แน่ใจ ควรให้แพทย์ตรวจยืนยัน`;
+            }
           }
         } else if (data.pubertyOnset === "female_lt7") {
           issueCodes.add("early_puberty");
